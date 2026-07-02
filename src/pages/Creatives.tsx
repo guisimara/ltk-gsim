@@ -1,16 +1,34 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusPill } from "@/components/StatusPill";
 import { ads as seedAds, type Ad } from "@/lib/seed";
 import { BENCHMARKS, classify, fmtBRL, fmtPct } from "@/lib/metrics";
 import { Flame, Image as ImageIcon, Video } from "lucide-react";
 import { toast } from "sonner";
+import { useDragScroll } from "@/hooks/use-drag-scroll";
+import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS: Ad["status"][] = ["ativo", "pausado", "vencedor", "cortado"];
+
+// ─── Bolinha de status (sem texto) ───────────────────────────────────────────
+const DOT_STYLE: Record<string, string> = {
+  bom:     "bg-success border-success/40",
+  atencao: "bg-warning border-warning/40",
+  ruim:    "bg-destructive border-destructive/40",
+};
+
+function StatusDot({ status }: { status: "bom" | "atencao" | "ruim" }) {
+  return (
+    <span
+      className={cn("inline-block h-2 w-2 rounded-full border shrink-0", DOT_STYLE[status])}
+      title={status === "bom" ? "Bom" : status === "atencao" ? "Atenção" : "Ruim"}
+    />
+  );
+}
 
 export default function Creatives() {
   const [filter, setFilter] = useState<"todos" | "estatico" | "video">("todos");
   const [ads, setAds] = useState<Ad[]>(seedAds);
+  const drag = useDragScroll();
 
   const list = ads.filter((a) => filter === "todos" || a.tipo === filter);
 
@@ -23,7 +41,7 @@ export default function Creatives() {
     <>
       <PageHeader
         title="Criativos"
-        subtitle="Bases de CTR diferentes para estático e vídeo — o filtro aplica a base correta"
+        subtitle="Bases de CTR diferentes para estático e vídeo"
         right={
           <div className="inline-flex items-center gap-1 p-1 rounded-lg border border-border bg-surface">
             {(["todos", "estatico", "video"] as const).map((f) => (
@@ -43,12 +61,38 @@ export default function Creatives() {
         }
       />
 
+      {/* Legenda de cores */}
+      <div className="flex items-center gap-4 mb-3 px-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Índice:</span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-2 w-2 rounded-full bg-success border border-success/40 shrink-0" />
+          Bom — dentro do benchmark
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-2 w-2 rounded-full bg-warning border border-warning/40 shrink-0" />
+          Atenção — próximo do limite
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-2 w-2 rounded-full bg-destructive border border-destructive/40 shrink-0" />
+          Ruim — abaixo do benchmark
+        </span>
+      </div>
+
       <div className="card-surface overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        {/* Área arrastável */}
+        <div
+          ref={drag.ref}
+          onMouseDown={drag.onMouseDown}
+          onMouseMove={drag.onMouseMove}
+          onMouseUp={drag.onMouseUp}
+          onMouseLeave={drag.onMouseLeave}
+          className="overflow-x-auto select-none"
+          style={{ cursor: "grab" }}
+        >
+          <table className="w-full text-sm" style={{ minWidth: 860 }}>
             <thead>
               <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-                <th className="text-left font-medium px-4 py-3">Criativo</th>
+                <th className="text-left font-medium px-4 py-3 sticky left-0 bg-card z-10">Criativo</th>
                 <th className="text-right font-medium px-3 py-3">Gasto</th>
                 <th className="text-right font-medium px-3 py-3">CTR</th>
                 <th className="text-right font-medium px-3 py-3">CPC</th>
@@ -81,18 +125,16 @@ export default function Creatives() {
 
                 return (
                   <tr key={ad.id} className="border-b border-border last:border-0 hover:bg-surface-elevated transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 sticky left-0 bg-card z-10">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-md bg-surface-elevated border border-border flex items-center justify-center shrink-0">
-                          {ad.tipo === "video" ? (
-                            <Video className="h-3.5 w-3.5 text-primary" />
-                          ) : (
-                            <ImageIcon className="h-3.5 w-3.5 text-primary-glow" />
-                          )}
+                        <div className="h-7 w-7 rounded-md bg-surface-elevated border border-border flex items-center justify-center shrink-0">
+                          {ad.tipo === "video"
+                            ? <Video className="h-3 w-3 text-primary" />
+                            : <ImageIcon className="h-3 w-3 text-primary-glow" />}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm text-foreground font-medium truncate max-w-[260px]">{ad.nome}</div>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[260px]">{ad.campaign}</div>
+                          <div className="text-xs text-foreground font-medium truncate max-w-[200px]">{ad.nome}</div>
+                          <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{ad.campaign}</div>
                         </div>
                       </div>
                     </td>
@@ -107,7 +149,7 @@ export default function Creatives() {
                     <td className="px-3 py-3 text-center">
                       {fadiga ? (
                         <span className="inline-flex items-center gap-1 text-destructive text-xs font-semibold">
-                          <Flame className="h-3.5 w-3.5" /> Fadiga
+                          <Flame className="h-3 w-3" /> Fadiga
                         </span>
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
@@ -139,8 +181,8 @@ function Cell({ value, status }: { value: string; status?: "bom" | "atencao" | "
   return (
     <td className="px-3 py-3 text-right">
       <div className="inline-flex items-center gap-2 justify-end">
-        <span className="num-tabular text-foreground">{value}</span>
-        {status && <StatusPill status={status} />}
+        <span className="num-tabular text-foreground text-xs">{value}</span>
+        {status && <StatusDot status={status} />}
       </div>
     </td>
   );
